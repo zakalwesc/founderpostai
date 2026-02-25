@@ -1,11 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import Stripe from 'stripe';
 import { buffer } from 'micro';
+import stripe from '@/lib/stripe';
 import { getDb } from '@/lib/db';
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2023-10-16',
-});
+import type Stripe from 'stripe';
 
 export const config = {
   api: {
@@ -45,6 +42,12 @@ export default async function handler(
 
       if (email) {
         db.prepare('UPDATE users SET tier = ? WHERE email = ?').run('pro', email);
+        const user = db.prepare('SELECT id FROM users WHERE email = ?').get(email) as any;
+        if (user) {
+          db.prepare(
+            'INSERT INTO subscription_events (user_id, event_type, stripe_subscription_id, created_at) VALUES (?, ?, ?, ?)'
+          ).run(user.id, event.type, subscription.id, new Date().toISOString());
+        }
       }
     }
 
@@ -54,6 +57,12 @@ export default async function handler(
 
       if (email) {
         db.prepare('UPDATE users SET tier = ? WHERE email = ?').run('free', email);
+        const user = db.prepare('SELECT id FROM users WHERE email = ?').get(email) as any;
+        if (user) {
+          db.prepare(
+            'INSERT INTO subscription_events (user_id, event_type, stripe_subscription_id, created_at) VALUES (?, ?, ?, ?)'
+          ).run(user.id, event.type, subscription.id, new Date().toISOString());
+        }
       }
     }
 

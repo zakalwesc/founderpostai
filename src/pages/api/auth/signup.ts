@@ -35,8 +35,8 @@ export default async function handler(
     const hashedPassword = await bcrypt.hash(password, 10);
 
     db.prepare(
-      'INSERT INTO users (email, password, tier, posts_used, created_at) VALUES (?, ?, ?, ?, ?)'
-    ).run(email, hashedPassword, 'free', 0, new Date().toISOString());
+      'INSERT INTO users (email, password, tier, created_at) VALUES (?, ?, ?, ?)'
+    ).run(email, hashedPassword, 'free', new Date().toISOString());
 
     return res.status(201).json({ message: 'Account created successfully' });
   } catch (error) {

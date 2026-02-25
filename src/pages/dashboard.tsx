@@ -1,3 +1,5 @@
+'use client';
+
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
@@ -32,12 +34,14 @@ export default function Dashboard() {
     return null;
   }
 
+  const userEmail = (session.user as any)?.email || '';
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
         <div>
           <h1 className="text-4xl font-bold text-gray-900 mb-2">
-            Welcome back, {(session.user as any)?.email?.split('@')[0]}!
+            Welcome back, {userEmail.split('@')[0]}!
           </h1>
           <p className="text-gray-600">Generate LinkedIn posts that actually get engagement</p>
         </div>

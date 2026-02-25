@@ -1,3 +1,5 @@
+'use client';
+
 import { useSession, signOut } from 'next-auth/react';
 import Link from 'next/link';
 import { ReactNode } from 'react';
@@ -21,16 +23,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           </Link>
 
           <div className="flex items-center gap-6">
-            <a
-              href="https://www.linkedin.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-gray-600 hover:text-linkedin font-medium"
-            >
-              LinkedIn Tips
-            </a>
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-linkedin to-blue-600 rounded-full flex items-center justify-center text-white font-bold">
+              <div className="w-10 h-10 bg-gradient-to-br from-linkedin to-blue-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
                 {userInitials}
               </div>
               <div className="hidden sm:block">

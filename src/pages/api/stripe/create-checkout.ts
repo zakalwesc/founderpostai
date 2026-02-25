@@ -1,14 +1,10 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { getSession } from 'next-auth/react';
-import Stripe from 'stripe';
+import stripe from '@/lib/stripe';
 import { getDb } from '@/lib/db';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2023-10-16',
-});
-
 type ResponseData = {
-  sessionId?: string;
+  url?: string;
   message?: string;
 };
 
@@ -27,7 +23,13 @@ export default async function handler(
 
   try {
     const db = getDb();
-    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(session.user.email) as any;
+    const user = db.prepare('SELECT * FROM users WHERE email = ?').get((session.user as any).email) as any;
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const baseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_URL || 'http://localhost:3000';
 
     const checkoutSession = await stripe.checkout.sessions.create({
       customer_email: user.email,
@@ -49,15 +51,15 @@ export default async function handler(
           quantity: 1,
         },
       ],
-      success_url: `${process.env.NEXTAUTH_URL}/dashboard?upgrade=success`,
-      cancel_url: `${process.env.NEXTAUTH_URL}/dashboard`,
+      success_url: `${baseUrl}/dashboard?upgrade=success`,
+      cancel_url: `${baseUrl}/dashboard`,
       metadata: {
         userId: user.id.toString(),
         email: user.email,
       },
     });
 
-    return res.status(200).json({ sessionId: checkoutSession.id });
+    return res.status(200).json({ url: checkoutSession.url });
   } catch (error) {
     console.error('Stripe error:', error);
     return res.status(500).json({ message: 'Failed to create checkout session' });

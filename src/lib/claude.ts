@@ -38,20 +38,24 @@ export async function generatePostVariations({
   postType,
   length,
 }: GeneratePostVariationsInput): Promise<string[]> {
-  const prompt = `You are an expert LinkedIn copywriter. Generate exactly 5 unique LinkedIn post variations that will drive engagement.
+  const prompt = `You are an expert LinkedIn copywriter who creates posts that drive engagement.
+
+Generate exactly 5 unique LinkedIn post variations optimized for maximum engagement.
 
 Requirements:
 - Topic: ${topic}
 - Tone: ${toneDescriptions[tone]}
-- Type: ${postTypeDescriptions[postType]}
-- Length: Around ${lengthGuides[length]}
-- Optimize for LinkedIn algorithm: use engaging hooks, relevant emojis, line breaks for readability
-- Each post should be distinct and offer a different angle
-- Posts should be authentic, not generic ChatGPT output
-- Include relevant hashtags
+- Post Type: ${postTypeDescriptions[postType]}
+- Target Length: Around ${lengthGuides[length]}
+- Include relevant emojis (2-4 per post) for visual appeal
+- Use line breaks strategically for readability
+- Each post should have a different angle or perspective
+- Include 2-3 relevant hashtags at the end
 - Focus on driving likes, comments, and shares
+- Write authentic, specific content (not generic)
+- Posts should feel personal and genuine
 
-Return ONLY the 5 posts, numbered 1-5, separated by line breaks. Do not include any other text or explanation.`;
+Return ONLY the 5 posts, numbered 1-5, separated by blank lines. Do not include any other text, explanations, or metadata.`;
 
   try {
     const message = await client.messages.create({
@@ -71,7 +75,7 @@ Return ONLY the 5 posts, numbered 1-5, separated by line breaks. Do not include 
     }
 
     const posts = content.text
-      .split(/\n(?=\d+\.)/)  // Split on lines starting with numbers
+      .split(/\n\n+/)  // Split on blank lines
       .map((post) => post.replace(/^\d+\.\s*/, '').trim())
       .filter((post) => post.length > 0);
 

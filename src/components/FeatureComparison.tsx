@@ -31,13 +31,23 @@ export default function FeatureComparison() {
             {features.map((feature, idx) => (
               <tr
                 key={idx}
-                className={`border-b border-gray-100 ${idx % 2 === 0 ? 'bg-gray-50' : 'bg-white'}`}
+                className={`border-b border-gray-100 ${
+                  idx % 2 === 0 ? 'bg-gray-50' : 'bg-white'
+                }`}
               >
                 <td className="py-4 px-6 text-gray-900 font-medium">{feature.name}</td>
                 <td className="text-center py-4 px-6">
                   {feature.founderPostAI ? (
-                    <svg className="w-6 h-6 text-success mx-auto" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    <svg
+                      className="w-6 h-6 text-success mx-auto"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                        clipRule="evenodd"
+                      />
                     </svg>
                   ) : (
                     <span className="text-gray-300">-</span>
@@ -45,8 +55,16 @@ export default function FeatureComparison() {
                 </td>
                 <td className="text-center py-4 px-6">
                   {feature.chatGPT ? (
-                    <svg className="w-6 h-6 text-success mx-auto" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    <svg
+                      className="w-6 h-6 text-success mx-auto"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                        clipRule="evenodd"
+                      />
                     </svg>
                   ) : (
                     <span className="text-gray-300">-</span>

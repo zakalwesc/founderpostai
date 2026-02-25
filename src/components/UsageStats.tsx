@@ -1,3 +1,5 @@
+'use client';
+
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import axios from 'axios';
@@ -43,13 +45,14 @@ export default function UsageStats({ refreshTrigger }: UsageStatsProps) {
 
   const usagePercent = Math.round((usage.posts_used / usage.posts_limit) * 100);
   const remaining = usage.posts_limit - usage.posts_used;
+  const isPro = usage.tier === 'pro';
 
   return (
     <div className="bg-white rounded-lg shadow-sm p-8">
       <div className="flex justify-between items-start mb-6">
         <div>
           <h2 className="text-2xl font-bold text-gray-900 mb-1">Monthly Usage</h2>
-          <p className="text-gray-600">{usage.tier === 'free' ? 'Free Plan' : 'Pro Plan'}</p>
+          <p className="text-gray-600">{isPro ? 'Pro Plan' : 'Free Plan'}</p>
         </div>
         {usage.tier === 'free' && remaining === 0 && (
           <Link
@@ -66,7 +69,7 @@ export default function UsageStats({ refreshTrigger }: UsageStatsProps) {
           <p className="text-lg font-semibold text-gray-900">
             {usage.posts_used} / {usage.posts_limit} posts used
           </p>
-          <p className="text-sm text-gray-600">{remaining} remaining</p>
+          <p className="text-sm text-gray-600">{Math.max(0, remaining)} remaining</p>
         </div>
 
         <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
@@ -78,28 +81,18 @@ export default function UsageStats({ refreshTrigger }: UsageStatsProps) {
           ></div>
         </div>
 
-        {usage.tier === 'free' && remaining <= 1 && (
+        {usage.tier === 'free' && remaining <= 1 && remaining > 0 && (
           <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
             <p className="text-blue-900 font-medium mb-2">Almost out of posts this month!</p>
             <p className="text-blue-800 text-sm mb-4">
-              Upgrade to Pro for 50 posts/month + priority support.
+              Upgrade to Pro for 50 posts/month. That's {Math.round(50 / 2)} times more.
             </p>
-            <button
-              onClick={async () => {
-                try {
-                  const response = await axios.post('/api/stripe/create-checkout');
-                  if (response.data.sessionId) {
-                    const stripe = await (window as any).Stripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
-                    await stripe.redirectToCheckout({ sessionId: response.data.sessionId });
-                  }
-                } catch (error) {
-                  console.error('Checkout error:', error);
-                }
-              }}
-              className="px-4 py-2 bg-linkedin text-white rounded-lg hover:bg-blue-700 font-semibold transition"
+            <Link
+              href="/api/stripe/create-checkout"
+              className="inline-block px-4 py-2 bg-linkedin text-white rounded font-semibold hover:bg-blue-700 transition"
             >
               Upgrade Now
-            </button>
+            </Link>
           </div>
         )}
       </div>

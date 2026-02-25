@@ -30,11 +30,16 @@ export default async function handler(
 
   try {
     const db = getDb();
-    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(session.user.email) as any;
+    const user = db.prepare('SELECT * FROM users WHERE email = ?').get((session.user as any).email) as any;
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
 
     const postLimits = { free: 2, pro: 50 };
     const monthStart = new Date();
     monthStart.setDate(1);
+    monthStart.setHours(0, 0, 0, 0);
 
     const monthlyUsage = db
       .prepare(

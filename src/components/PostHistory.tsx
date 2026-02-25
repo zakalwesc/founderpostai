@@ -1,3 +1,5 @@
+'use client';
+
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import axios from 'axios';
@@ -65,7 +67,7 @@ export default function PostHistory({ refreshTrigger }: PostHistoryProps) {
 
   if (posts.length === 0) {
     return (
-      <div className="text-center py-16">
+      <div className="text-center py-16 bg-white rounded-lg">
         <p className="text-gray-500 text-lg">No posts yet. Generate your first post to get started!</p>
       </div>
     );
@@ -77,10 +79,8 @@ export default function PostHistory({ refreshTrigger }: PostHistoryProps) {
         <div key={post.id} className="bg-white rounded-lg shadow-sm p-6 hover:shadow-md transition">
           <div className="flex justify-between items-start gap-4 mb-4">
             <div className="flex-1">
-              <p className="text-sm text-gray-500 mb-2">
-                {formatDate(post.created_at)}
-              </p>
-              <div className="flex gap-2 mb-3">
+              <p className="text-sm text-gray-500 mb-2">{formatDate(post.created_at)}</p>
+              <div className="flex gap-2 mb-3 flex-wrap">
                 <span className="px-3 py-1 bg-linkedin/10 text-linkedin rounded-full text-xs font-semibold">
                   {post.tone}
                 </span>
@@ -96,14 +96,14 @@ export default function PostHistory({ refreshTrigger }: PostHistoryProps) {
               onClick={() => handleCopy(post)}
               className={`flex-shrink-0 px-4 py-2 rounded-lg font-medium transition ${
                 copiedId === post.id
-                  ? 'bg-success text-white'
-                  : 'bg-linkedin/10 text-linkedin hover:bg-linkedin hover:text-white'
+                  ? 'bg-green-100 text-green-800'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
-              {copiedId === post.id ? '✓ Copied' : 'Copy'}
+              {copiedId === post.id ? '✓' : '📋'}
             </button>
           </div>
-          <p className="text-gray-900 whitespace-pre-wrap">{post.content}</p>
+          <p className="text-gray-800 leading-relaxed whitespace-pre-wrap">{post.content}</p>
         </div>
       ))}
     </div>

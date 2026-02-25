@@ -3,7 +3,9 @@ import Link from 'next/link';
 export default function PricingSection() {
   return (
     <div className="py-16">
-      <h2 className="text-4xl font-bold text-gray-900 mb-12 text-center">Simple, Transparent Pricing</h2>
+      <h2 className="text-4xl font-bold text-gray-900 mb-12 text-center">
+        Simple, Transparent Pricing
+      </h2>
 
       <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
         {/* Free Tier */}
@@ -19,25 +21,41 @@ export default function PricingSection() {
           <ul className="space-y-4 mb-8">
             <li className="flex items-center gap-3">
               <svg className="w-5 h-5 text-success flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                <path
+                  fillRule="evenodd"
+                  d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                  clipRule="evenodd"
+                />
               </svg>
               <span className="text-gray-700">2 posts/month</span>
             </li>
             <li className="flex items-center gap-3">
               <svg className="w-5 h-5 text-success flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                <path
+                  fillRule="evenodd"
+                  d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                  clipRule="evenodd"
+                />
               </svg>
               <span className="text-gray-700">5 variations each</span>
             </li>
             <li className="flex items-center gap-3">
               <svg className="w-5 h-5 text-success flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                <path
+                  fillRule="evenodd"
+                  d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                  clipRule="evenodd"
+                />
               </svg>
               <span className="text-gray-700">All tones & types</span>
             </li>
             <li className="flex items-center gap-3">
               <svg className="w-5 h-5 text-success flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                <path
+                  fillRule="evenodd"
+                  d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                  clipRule="evenodd"
+                />
               </svg>
               <span className="text-gray-700">Post history</span>
             </li>
@@ -45,7 +63,7 @@ export default function PricingSection() {
 
           <Link
             href="/auth/signup"
-            className="w-full px-6 py-3 border border-linkedin text-linkedin rounded-lg hover:bg-blue-50 font-semibold transition"
+            className="w-full block text-center px-6 py-3 border border-linkedin text-linkedin rounded-lg hover:bg-blue-50 font-semibold transition"
           >
             Get Started
           </Link>
@@ -53,8 +71,8 @@ export default function PricingSection() {
 
         {/* Pro Tier */}
         <div className="bg-gradient-to-br from-linkedin to-blue-700 rounded-lg shadow-lg p-8 border border-blue-600 relative">
-          <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-warning text-white px-4 py-1 rounded-full text-sm font-semibold">
-            Most Popular
+          <div className="absolute top-4 right-4 bg-yellow-400 text-gray-900 px-3 py-1 rounded-full text-xs font-bold">
+            MOST POPULAR
           </div>
 
           <h3 className="text-2xl font-bold text-white mb-2">Pro</h3>
@@ -62,31 +80,47 @@ export default function PricingSection() {
 
           <div className="mb-8">
             <div className="text-5xl font-bold text-white">$9</div>
-            <p className="text-blue-100 text-sm mt-2">per month</p>
+            <p className="text-blue-100 text-sm mt-2">per month, billed monthly</p>
           </div>
 
           <ul className="space-y-4 mb-8">
             <li className="flex items-center gap-3">
               <svg className="w-5 h-5 text-white flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                <path
+                  fillRule="evenodd"
+                  d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                  clipRule="evenodd"
+                />
               </svg>
               <span className="text-white">50 posts/month</span>
             </li>
             <li className="flex items-center gap-3">
               <svg className="w-5 h-5 text-white flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-              </svg>
-              <span className="text-white">5 variations each</span>
-            </li>
-            <li className="flex items-center gap-3">
-              <svg className="w-5 h-5 text-white flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                <path
+                  fillRule="evenodd"
+                  d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                  clipRule="evenodd"
+                />
               </svg>
               <span className="text-white">All tones & types</span>
             </li>
             <li className="flex items-center gap-3">
               <svg className="w-5 h-5 text-white flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                <path
+                  fillRule="evenodd"
+                  d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              <span className="text-white">Full post history</span>
+            </li>
+            <li className="flex items-center gap-3">
+              <svg className="w-5 h-5 text-white flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path
+                  fillRule="evenodd"
+                  d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                  clipRule="evenodd"
+                />
               </svg>
               <span className="text-white">Priority support</span>
             </li>
@@ -94,10 +128,12 @@ export default function PricingSection() {
 
           <Link
             href="/auth/signup"
-            className="w-full px-6 py-3 bg-white text-linkedin rounded-lg hover:bg-blue-50 font-semibold transition"
+            className="w-full block text-center px-6 py-3 bg-white text-linkedin rounded-lg hover:bg-gray-100 font-bold transition"
           >
-            Start Pro Trial
+            Start Free Trial
           </Link>
+
+          <p className="text-center text-blue-100 text-xs mt-4">No credit card required to try</p>
         </div>
       </div>
     </div>

@@ -14,3 +14,6 @@ build/
 *.swo
 *~
 .vscode/
+dev.db
+dev.db-shm
+dev.db-wal

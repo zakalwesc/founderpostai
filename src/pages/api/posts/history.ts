@@ -32,11 +32,15 @@ export default async function handler(
 
   try {
     const db = getDb();
-    const user = db.prepare('SELECT id FROM users WHERE email = ?').get(session.user.email) as any;
+    const user = db.prepare('SELECT id FROM users WHERE email = ?').get((session.user as any).email) as any;
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
 
     const posts = db
       .prepare(
-        'SELECT id, content, topic, tone, post_type, length, created_at FROM posts WHERE user_id = ? ORDER BY created_at DESC LIMIT 50'
+        'SELECT id, content, topic, tone, post_type, length, created_at FROM posts WHERE user_id = ? ORDER BY created_at DESC LIMIT 100'
       )
       .all(user.id) as Post[];
 

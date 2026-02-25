@@ -1,3 +1,5 @@
+'use client';
+
 import { useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
@@ -77,6 +79,7 @@ export default function Signup() {
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-linkedin focus:border-transparent"
                 placeholder="••••••••"
               />
+              <p className="text-xs text-gray-500 mt-1">At least 8 characters</p>
             </div>
 
             <div>
@@ -96,7 +99,7 @@ export default function Signup() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-linkedin hover:bg-blue-700 text-white font-semibold py-2 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-linkedin hover:bg-blue-700 text-white font-semibold py-2 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed mt-6"
             >
               {isLoading ? 'Creating account...' : 'Create Account'}
             </button>

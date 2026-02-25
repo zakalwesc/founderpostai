@@ -6,7 +6,7 @@ let db: Database.Database;
 
 export function getDb() {
   if (!db) {
-    const dbPath = process.env.DATABASE_URL || path.join(process.cwd(), 'data', 'dev.db');
+    const dbPath = process.env.DATABASE_URL?.replace('file://', '') || path.join(process.cwd(), 'dev.db');
 
     // Ensure directory exists
     const dbDir = path.dirname(dbPath);
@@ -14,9 +14,7 @@ export function getDb() {
       fs.mkdirSync(dbDir, { recursive: true });
     }
 
-    // Remove 'file://' prefix if present
-    const cleanPath = dbPath.replace('file://', '');
-    db = new Database(cleanPath);
+    db = new Database(dbPath);
     db.pragma('journal_mode = WAL');
 
     // Initialize schema
@@ -33,7 +31,6 @@ function initializeSchema() {
       email TEXT UNIQUE NOT NULL,
       password TEXT NOT NULL,
       tier TEXT DEFAULT 'free',
-      posts_used INTEGER DEFAULT 0,
       created_at TEXT NOT NULL
     );
 
@@ -46,7 +43,7 @@ function initializeSchema() {
       post_type TEXT NOT NULL,
       length TEXT NOT NULL,
       created_at TEXT NOT NULL,
-      FOREIGN KEY (user_id) REFERENCES users(id)
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     );
 
     CREATE TABLE IF NOT EXISTS subscription_events (
@@ -55,7 +52,7 @@ function initializeSchema() {
       event_type TEXT NOT NULL,
       stripe_subscription_id TEXT,
       created_at TEXT NOT NULL,
-      FOREIGN KEY (user_id) REFERENCES users(id)
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     );
 
     CREATE INDEX IF NOT EXISTS idx_posts_user_id ON posts(user_id);
