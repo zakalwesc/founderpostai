@@ -1,15 +1,16 @@
+'use client';
+
 import { useState } from 'react';
 import { useRouter } from 'next/router';
+import Link from 'next/link';
 import Head from 'next/head';
-import styles from '@/styles/Auth.module.css';
 
 export default function SignUp() {
-  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,17 +21,21 @@ export default function SignUp() {
       const res = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, name }),
+        body: JSON.stringify({ email, password }),
       });
 
+      const data = await res.json();
+
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Signup failed');
+        setError(data.error || 'Failed to sign up');
+        return;
       }
 
+      // Redirect to dashboard
       router.push('/dashboard');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Signup failed');
+    } catch (error) {
+      setError('An error occurred. Please try again.');
+      console.error('Signup error:', error);
     } finally {
       setLoading(false);
     }
@@ -41,62 +46,58 @@ export default function SignUp() {
       <Head>
         <title>Sign Up - FounderPostAI</title>
       </Head>
-      <div className={styles.container}>
-        <div className={styles.form}>
-          <h1>Create Your Free Account</h1>
-          <p className={styles.subtitle}>2 posts/month included. Upgrade anytime.</p>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center px-4">
+        <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-md">
+          <h1 className="text-3xl font-bold mb-2 text-center">FounderPostAI</h1>
+          <p className="text-gray-600 text-center mb-8">Get 2 free posts this month</p>
 
-          {error && <div className={styles.error}>{error}</div>}
-
-          <form onSubmit={handleSubmit}>
-            <div className={styles.formGroup}>
-              <label htmlFor="name">Name</label>
-              <input
-                id="name"
-                type="text"
-                placeholder="Your name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
+          {error && (
+            <div className="mb-4 p-4 rounded bg-red-50 border border-red-200 text-red-700 text-sm">
+              {error}
             </div>
+          )}
 
-            <div className={styles.formGroup}>
-              <label htmlFor="email">Email</label>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Email
+              </label>
               <input
-                id="email"
                 type="email"
-                placeholder="your@email.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 required
               />
             </div>
 
-            <div className={styles.formGroup}>
-              <label htmlFor="password">Password</label>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Password
+              </label>
               <input
-                id="password"
                 type="password"
-                placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 required
               />
             </div>
 
-            <button type="submit" disabled={loading} className={styles.submitButton}>
-              {loading ? 'Creating Account...' : 'Sign Up Free'}
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-3 px-4 rounded-lg bg-blue-600 text-white font-bold hover:bg-blue-700 disabled:opacity-50"
+            >
+              {loading ? 'Creating account...' : 'Create Account'}
             </button>
           </form>
 
-          <p className={styles.footerText}>
+          <p className="text-center text-gray-600 mt-6">
             Already have an account?{' '}
-            <button
-              onClick={() => router.push('/auth/login')}
-              className={styles.link}
-            >
+            <Link href="/auth/login" className="text-blue-600 font-bold hover:underline">
               Log in
-            </button>
+            </Link>
           </p>
         </div>
       </div>

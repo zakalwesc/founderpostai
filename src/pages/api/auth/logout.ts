@@ -1,6 +1,13 @@
-import type { NextApiRequest, NextApiResponse } from 'next';
+import { NextApiRequest, NextApiResponse } from 'next';
 
-export default function handler(req: NextApiRequest, res: NextApiResponse) {
-  res.setHeader('Set-Cookie', 'token=; Path=/; HttpOnly; Max-Age=0');
-  return res.status(200).json({ success: true });
+export default function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
+  res.setHeader(
+    'Set-Cookie',
+    'token=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Strict'
+  );
+
+  return res.status(200).json({ message: 'Logged out' });
 }

@@ -1,7 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import prisma from '@/lib/db';
 import { verifyToken } from '@/lib/auth';
-import { generatePostVariations } from '@/lib/claude';
 
 function getTokenFromCookie(req: NextApiRequest): string | null {
   const cookie = req.headers.cookie;
@@ -25,7 +24,7 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  if (req.method !== 'POST') {
+  if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
@@ -48,13 +47,6 @@ export default async function handler(
       return res.status(404).json({ error: 'User not found' });
     }
 
-    const { topic, tone, type, length } = req.body;
-
-    if (!topic || !tone || !type || !length) {
-      return res.status(400).json({ error: 'Missing required fields' });
-    }
-
-    // Check usage
     const currentMonth = new Date().toISOString().slice(0, 7);
     const usage = await prisma.usage.findUnique({
       where: { userId_month: { userId: user.id, month: currentMonth } },
@@ -63,48 +55,15 @@ export default async function handler(
     const currentCount = usage?.count || 0;
     const limit = TIER_LIMITS[user.tier as keyof typeof TIER_LIMITS] || 2;
 
-    if (currentCount >= limit) {
-      return res.status(429).json({
-        error: `Usage limit reached (${limit} posts/month for ${user.tier} tier)`,
-        tier: user.tier,
-        limit,
-        used: currentCount,
-      });
-    }
-
-    // Generate posts
-    const posts = await generatePostVariations(topic, tone, type, length);
-
-    // Save to database
-    await Promise.all(
-      posts.map((content) =>
-        prisma.post.create({
-          data: {
-            userId: user.id,
-            topic,
-            tone,
-            type,
-            length,
-            content,
-          },
-        })
-      )
-    );
-
-    // Update usage
-    await prisma.usage.upsert({
-      where: { userId_month: { userId: user.id, month: currentMonth } },
-      update: { count: currentCount + 5 },
-      create: {
-        userId: user.id,
-        month: currentMonth,
-        count: 5,
-      },
+    return res.status(200).json({
+      tier: user.tier,
+      used: currentCount,
+      limit,
+      remaining: Math.max(0, limit - currentCount),
+      month: currentMonth,
     });
-
-    return res.status(200).json({ posts });
   } catch (error) {
-    console.error('Generate error:', error);
-    return res.status(500).json({ error: 'Failed to generate posts' });
+    console.error('Usage error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
   }
 }

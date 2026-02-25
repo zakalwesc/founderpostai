@@ -1,9 +1,6 @@
-import type { NextApiRequest, NextApiResponse } from 'next';
-import bcrypt from 'bcryptjs';
-import { PrismaClient } from '@prisma/client';
-import jwt from 'jsonwebtoken';
-
-const prisma = new PrismaClient();
+import { NextApiRequest, NextApiResponse } from 'next';
+import prisma from '@/lib/db';
+import { hashPassword, generateToken } from '@/lib/auth';
 
 export default async function handler(
   req: NextApiRequest,
@@ -14,7 +11,7 @@ export default async function handler(
   }
 
   try {
-    const { email, password, name } = req.body;
+    const { email, password } = req.body;
 
     if (!email || !password) {
       return res.status(400).json({ error: 'Email and password required' });
@@ -22,35 +19,30 @@ export default async function handler(
 
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
-      return res.status(400).json({ error: 'Email already registered' });
+      return res.status(409).json({ error: 'Email already exists' });
     }
 
-    const hash = await bcrypt.hash(password, 10);
     const user = await prisma.user.create({
       data: {
         email,
-        name: name || email.split('@')[0],
-        passwordHash: hash,
+        password: hashPassword(password),
         tier: 'free',
       },
     });
 
-    await prisma.usage.create({
-      data: {
-        userId: user.id,
-        postsUsed: 0,
-        monthYear: new Date().toISOString().slice(0, 7),
-      },
-    });
+    const token = generateToken(user.id);
 
-    const token = jwt.sign({ userId: user.id }, process.env.NEXTAUTH_SECRET || 'secret', {
-      expiresIn: '30d',
-    });
+    res.setHeader(
+      'Set-Cookie',
+      `token=${token}; Path=/; Max-Age=${30 * 24 * 60 * 60}; HttpOnly; Secure; SameSite=Strict`
+    );
 
-    res.setHeader('Set-Cookie', `token=${token}; Path=/; HttpOnly; Max-Age=2592000`);
-    return res.status(201).json({ user: { id: user.id, email: user.email, tier: user.tier } });
+    return res.status(201).json({
+      user: { id: user.id, email: user.email, tier: user.tier },
+      token,
+    });
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ error: 'Signup failed' });
+    console.error('Signup error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
   }
 }

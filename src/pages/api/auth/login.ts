@@ -1,9 +1,6 @@
-import type { NextApiRequest, NextApiResponse } from 'next';
-import bcrypt from 'bcryptjs';
-import { PrismaClient } from '@prisma/client';
-import jwt from 'jsonwebtoken';
-
-const prisma = new PrismaClient();
+import { NextApiRequest, NextApiResponse } from 'next';
+import prisma from '@/lib/db';
+import { verifyPassword, generateToken } from '@/lib/auth';
 
 export default async function handler(
   req: NextApiRequest,
@@ -21,23 +18,23 @@ export default async function handler(
     }
 
     const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) {
+    if (!user || !verifyPassword(password, user.password)) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    const valid = await bcrypt.compare(password, user.passwordHash);
-    if (!valid) {
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
+    const token = generateToken(user.id);
 
-    const token = jwt.sign({ userId: user.id }, process.env.NEXTAUTH_SECRET || 'secret', {
-      expiresIn: '30d',
+    res.setHeader(
+      'Set-Cookie',
+      `token=${token}; Path=/; Max-Age=${30 * 24 * 60 * 60}; HttpOnly; Secure; SameSite=Strict`
+    );
+
+    return res.status(200).json({
+      user: { id: user.id, email: user.email, tier: user.tier },
+      token,
     });
-
-    res.setHeader('Set-Cookie', `token=${token}; Path=/; HttpOnly; Max-Age=2592000`);
-    return res.status(200).json({ user: { id: user.id, email: user.email, tier: user.tier } });
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ error: 'Login failed' });
+    console.error('Login error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
   }
 }

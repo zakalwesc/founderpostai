@@ -1,34 +1,24 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  name          String?
-  passwordHash  String
-  tier          String    @default("free")
-  stripeId      String?
-  subscriptionId String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  posts         Post[]
-  usage         Usage?
-}
-
-model Usage {
-  id        String   @id @default(cuid())
-  userId    String   @unique
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  postsUsed Int      @default(0)
-  monthYear String   @default("")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id        String     @id @default(cuid())
+  email     String     @unique
+  password  String
+  tier      String     @default("free")
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  posts     Post[]
+  usages    Usage[]
 }
 
 model Post {
@@ -37,8 +27,19 @@ model Post {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   topic     String
   tone      String
-  postType  String
+  type      String
   length    String
-  variations String[] @default([])
+  content   String
   createdAt DateTime @default(now())
+}
+
+model Usage {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  month     String   // YYYY-MM format
+  count     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([userId, month])
 }
