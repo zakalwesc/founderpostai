@@ -1,64 +1,38 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
+import { getSession } from 'next-auth/react';
 import Stripe from 'stripe';
-import { PrismaClient } from '@prisma/client';
-import jwt from 'jsonwebtoken';
+import { getDb } from '@/lib/db';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', { apiVersion: '2023-10-16' });
-const prisma = new PrismaClient();
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
+  apiVersion: '2023-10-16',
+});
 
-interface JwtPayload {
-  userId: string;
-  iat: number;
-  exp: number;
-}
-
-function verifyToken(token: string): JwtPayload | null {
-  try {
-    return jwt.verify(token, process.env.NEXTAUTH_SECRET || 'secret') as JwtPayload;
-  } catch {
-    return null;
-  }
-}
-
-function getCookie(cookieString: string, name: string): string | null {
-  const cookies = cookieString.split('; ');
-  for (const cookie of cookies) {
-    const [key, value] = cookie.split('=');
-    if (key === name) return value;
-  }
-  return null;
-}
+type ResponseData = {
+  sessionId?: string;
+  message?: string;
+};
 
 export default async function handler(
   req: NextApiRequest,
-  res: NextApiResponse
+  res: NextApiResponse<ResponseData>
 ) {
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+    return res.status(405).json({ message: 'Method not allowed' });
+  }
+
+  const session = await getSession({ req });
+  if (!session || !session.user) {
+    return res.status(401).json({ message: 'Unauthorized' });
   }
 
   try {
-    const cookieHeader = req.headers.cookie || '';
-    const token = getCookie(cookieHeader, 'token');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
+    const db = getDb();
+    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(session.user.email) as any;
 
-    const payload = verifyToken(token);
-    if (!payload) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const user = await prisma.user.findUnique({ where: { id: payload.userId } });
-    if (!user) {
-      return res.status(401).json({ error: 'User not found' });
-    }
-
-    const session = await stripe.checkout.sessions.create({
+    const checkoutSession = await stripe.checkout.sessions.create({
+      customer_email: user.email,
       payment_method_types: ['card'],
       mode: 'subscription',
-      customer_email: user.email,
       line_items: [
         {
           price_data: {
@@ -70,23 +44,22 @@ export default async function handler(
             unit_amount: 900,
             recurring: {
               interval: 'month',
-              interval_count: 1,
             },
           },
           quantity: 1,
         },
       ],
-      success_url: `${req.headers.origin}/dashboard?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${req.headers.origin}/dashboard`,
-      client_reference_id: user.id,
+      success_url: `${process.env.NEXTAUTH_URL}/dashboard?upgrade=success`,
+      cancel_url: `${process.env.NEXTAUTH_URL}/dashboard`,
       metadata: {
-        userId: user.id,
+        userId: user.id.toString(),
+        email: user.email,
       },
     });
 
-    return res.status(200).json({ sessionId: session.id, url: session.url });
+    return res.status(200).json({ sessionId: checkoutSession.id });
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ error: 'Checkout creation failed' });
+    console.error('Stripe error:', error);
+    return res.status(500).json({ message: 'Failed to create checkout session' });
   }
 }

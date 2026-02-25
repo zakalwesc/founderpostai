@@ -1,110 +1,71 @@
-import { NextApiRequest, NextApiResponse } from 'next';
-import prisma from '@/lib/db';
-import { verifyToken } from '@/lib/auth';
+import type { NextApiRequest, NextApiResponse } from 'next';
+import { getSession } from 'next-auth/react';
+import { getDb } from '@/lib/db';
 import { generatePostVariations } from '@/lib/claude';
 
-function getTokenFromCookie(req: NextApiRequest): string | null {
-  const cookie = req.headers.cookie;
-  if (!cookie) return null;
-  const cookies = cookie.split(';');
-  for (const c of cookies) {
-    const [key, value] = c.split('=');
-    if (key.trim() === 'token') {
-      return value?.trim() || null;
-    }
-  }
-  return null;
-}
-
-const TIER_LIMITS = {
-  free: 2,
-  pro: 50,
+type ResponseData = {
+  message?: string;
+  posts?: string[];
+  error?: string;
 };
 
 export default async function handler(
   req: NextApiRequest,
-  res: NextApiResponse
+  res: NextApiResponse<ResponseData>
 ) {
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+    return res.status(405).json({ message: 'Method not allowed' });
+  }
+
+  const session = await getSession({ req });
+  if (!session || !session.user) {
+    return res.status(401).json({ message: 'Unauthorized' });
+  }
+
+  const { topic, tone, postType, length } = req.body;
+
+  if (!topic || !tone || !postType || !length) {
+    return res.status(400).json({ message: 'Missing required fields' });
   }
 
   try {
-    const token = getTokenFromCookie(req);
-    if (!token) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
+    const db = getDb();
+    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(session.user.email) as any;
 
-    const decoded = verifyToken(token);
-    if (!decoded) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
+    const postLimits = { free: 2, pro: 50 };
+    const monthStart = new Date();
+    monthStart.setDate(1);
 
-    const user = await prisma.user.findUnique({
-      where: { id: decoded.userId },
-    });
+    const monthlyUsage = db
+      .prepare(
+        'SELECT COUNT(*) as count FROM posts WHERE user_id = ? AND created_at >= ?'
+      )
+      .get(user.id, monthStart.toISOString()) as any;
 
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    const { topic, tone, type, length } = req.body;
-
-    if (!topic || !tone || !type || !length) {
-      return res.status(400).json({ error: 'Missing required fields' });
-    }
-
-    // Check usage
-    const currentMonth = new Date().toISOString().slice(0, 7);
-    const usage = await prisma.usage.findUnique({
-      where: { userId_month: { userId: user.id, month: currentMonth } },
-    });
-
-    const currentCount = usage?.count || 0;
-    const limit = TIER_LIMITS[user.tier as keyof typeof TIER_LIMITS] || 2;
-
-    if (currentCount >= limit) {
-      return res.status(429).json({
-        error: `Usage limit reached (${limit} posts/month for ${user.tier} tier)`,
-        tier: user.tier,
-        limit,
-        used: currentCount,
+    const limit = postLimits[user.tier as 'free' | 'pro'];
+    if (monthlyUsage.count >= limit) {
+      return res.status(403).json({
+        error: `You've reached your monthly limit of ${limit} posts. Upgrade to Pro for 50 posts/month.`,
       });
     }
 
-    // Generate posts
-    const posts = await generatePostVariations(topic, tone, type, length);
+    const posts = await generatePostVariations({
+      topic,
+      tone,
+      postType,
+      length,
+    });
 
-    // Save to database
-    await Promise.all(
-      posts.map((content) =>
-        prisma.post.create({
-          data: {
-            userId: user.id,
-            topic,
-            tone,
-            type,
-            length,
-            content,
-          },
-        })
-      )
-    );
-
-    // Update usage
-    await prisma.usage.upsert({
-      where: { userId_month: { userId: user.id, month: currentMonth } },
-      update: { count: currentCount + 5 },
-      create: {
-        userId: user.id,
-        month: currentMonth,
-        count: 5,
-      },
+    const timestamp = new Date().toISOString();
+    posts.forEach((post) => {
+      db.prepare(
+        'INSERT INTO posts (user_id, content, topic, tone, post_type, length, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
+      ).run(user.id, post, topic, tone, postType, length, timestamp);
     });
 
     return res.status(200).json({ posts });
   } catch (error) {
-    console.error('Generate error:', error);
-    return res.status(500).json({ error: 'Failed to generate posts' });
+    console.error('Generate posts error:', error);
+    return res.status(500).json({ message: 'Failed to generate posts' });
   }
 }

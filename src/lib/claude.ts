@@ -4,57 +4,81 @@ const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
-export async function generatePostVariations(
-  topic: string,
-  tone: string,
-  type: string,
-  length: string
-): Promise<string[]> {
-  const lengthGuide = {
-    short: '280 characters',
-    medium: '500 characters',
-    long: '1000+ characters',
-  };
+interface GeneratePostVariationsInput {
+  topic: string;
+  tone: 'professional' | 'casual' | 'funny' | 'thought-leadership';
+  postType: 'story' | 'tips' | 'questions' | 'announcement' | 'insight';
+  length: 'short' | 'medium' | 'long';
+}
 
-  const prompt = `Generate exactly 5 different LinkedIn post variations based on these parameters:
+const lengthGuides = {
+  short: '280 characters',
+  medium: '500 characters',
+  long: '1000+ characters',
+};
 
-Topic: ${topic}
-Tone: ${tone}
-Type: ${type}
-Length: ${lengthGuide[length as keyof typeof lengthGuide] || '500 characters'}
+const toneDescriptions = {
+  professional: 'formal and businesslike',
+  casual: 'friendly and conversational',
+  funny: 'humorous and witty',
+  'thought-leadership': 'insightful and authoritative',
+};
 
-Instructions:
-- Each variation must be distinct and unique
-- Optimize for LinkedIn engagement (no hashtags at the beginning)
-- Match the specified tone exactly
-- If type is 'story', create narrative posts
-- If type is 'tips', create actionable advice
-- If type is 'questions', create thought-provoking questions
-- Respect the character limit
-- Make each variation compelling and authentic
+const postTypeDescriptions = {
+  story: 'a personal or business story with a lesson',
+  tips: 'actionable tips or best practices',
+  questions: 'engaging questions to spark discussion',
+  announcement: 'an important announcement or update',
+  insight: 'a unique insight or perspective',
+};
 
-Return ONLY the 5 posts, numbered 1-5, separated by double newlines. Do not include explanations or meta-text.`;
+export async function generatePostVariations({
+  topic,
+  tone,
+  postType,
+  length,
+}: GeneratePostVariationsInput): Promise<string[]> {
+  const prompt = `You are an expert LinkedIn copywriter. Generate exactly 5 unique LinkedIn post variations that will drive engagement.
 
-  const message = await client.messages.create({
-    model: 'claude-sonnet-4-20250514',
-    max_tokens: 2000,
-    messages: [
-      {
-        role: 'user',
-        content: prompt,
-      },
-    ],
-  });
+Requirements:
+- Topic: ${topic}
+- Tone: ${toneDescriptions[tone]}
+- Type: ${postTypeDescriptions[postType]}
+- Length: Around ${lengthGuides[length]}
+- Optimize for LinkedIn algorithm: use engaging hooks, relevant emojis, line breaks for readability
+- Each post should be distinct and offer a different angle
+- Posts should be authentic, not generic ChatGPT output
+- Include relevant hashtags
+- Focus on driving likes, comments, and shares
 
-  const content = message.content[0];
-  if (content.type !== 'text') {
-    throw new Error('Unexpected response type from Claude');
+Return ONLY the 5 posts, numbered 1-5, separated by line breaks. Do not include any other text or explanation.`;
+
+  try {
+    const message = await client.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 2000,
+      messages: [
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
+    });
+
+    const content = message.content[0];
+    if (content.type !== 'text') {
+      throw new Error('Unexpected response type from Claude');
+    }
+
+    const posts = content.text
+      .split(/\n(?=\d+\.)/)  // Split on lines starting with numbers
+      .map((post) => post.replace(/^\d+\.\s*/, '').trim())
+      .filter((post) => post.length > 0);
+
+    // Return exactly 5 posts
+    return posts.slice(0, 5);
+  } catch (error) {
+    console.error('Claude API error:', error);
+    throw new Error('Failed to generate posts');
   }
-
-  const posts = content.text
-    .split('\n\n')
-    .filter((p) => p.trim().length > 0)
-    .map((p) => p.replace(/^\d+\.\s*/, '').trim());
-
-  return posts.slice(0, 5);
 }

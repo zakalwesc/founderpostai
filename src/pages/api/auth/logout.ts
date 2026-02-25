@@ -1,13 +1,18 @@
-import { NextApiRequest, NextApiResponse } from 'next';
+import type { NextApiRequest, NextApiResponse } from 'next';
+import { getSession } from 'next-auth/react';
 
-export default function handler(
+export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  res.setHeader(
-    'Set-Cookie',
-    'token=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Strict'
-  );
+  if (req.method !== 'POST') {
+    return res.status(405).json({ message: 'Method not allowed' });
+  }
 
-  return res.status(200).json({ message: 'Logged out' });
+  const session = await getSession({ req });
+  if (!session) {
+    return res.status(401).json({ message: 'Unauthorized' });
+  }
+
+  return res.status(200).json({ message: 'Logged out successfully' });
 }

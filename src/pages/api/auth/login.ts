@@ -1,40 +1,64 @@
-import { NextApiRequest, NextApiResponse } from 'next';
-import prisma from '@/lib/db';
-import { verifyPassword, generateToken } from '@/lib/auth';
+import type { NextApiRequest, NextApiResponse } from 'next';
+import NextAuth from 'next-auth';
+import CredentialsProvider from 'next-auth/providers/credentials';
+import bcrypt from 'bcryptjs';
+import { getDb } from '@/lib/db';
 
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse
-) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+export const authOptions = {
+  providers: [
+    CredentialsProvider({
+      credentials: {
+        email: { label: 'Email', type: 'email' },
+        password: { label: 'Password', type: 'password' },
+      },
+      async authorize(credentials) {
+        if (!credentials?.email || !credentials?.password) {
+          throw new Error('Invalid credentials');
+        }
 
-  try {
-    const { email, password } = req.body;
+        const db = getDb();
+        const user = db.prepare('SELECT * FROM users WHERE email = ?').get(credentials.email) as any;
 
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password required' });
-    }
+        if (!user) {
+          throw new Error('Invalid credentials');
+        }
 
-    const user = await prisma.user.findUnique({ where: { email } });
-    if (!user || !verifyPassword(password, user.password)) {
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
+        const isPasswordValid = await bcrypt.compare(credentials.password, user.password);
+        if (!isPasswordValid) {
+          throw new Error('Invalid credentials');
+        }
 
-    const token = generateToken(user.id);
+        return {
+          id: user.id.toString(),
+          email: user.email,
+          tier: user.tier,
+        };
+      },
+    }),
+  ],
+  pages: {
+    signIn: '/auth/login',
+  },
+  session: {
+    strategy: 'jwt' as const,
+    maxAge: 30 * 24 * 60 * 60,
+  },
+  callbacks: {
+    async jwt({ token, user }: any) {
+      if (user) {
+        token.id = user.id;
+        token.tier = user.tier;
+      }
+      return token;
+    },
+    async session({ session, token }: any) {
+      if (session.user) {
+        session.user.id = token.id;
+        session.user.tier = token.tier;
+      }
+      return session;
+    },
+  },
+};
 
-    res.setHeader(
-      'Set-Cookie',
-      `token=${token}; Path=/; Max-Age=${30 * 24 * 60 * 60}; HttpOnly; Secure; SameSite=Strict`
-    );
-
-    return res.status(200).json({
-      user: { id: user.id, email: user.email, tier: user.tier },
-      token,
-    });
-  } catch (error) {
-    console.error('Login error:', error);
-    return res.status(500).json({ error: 'Internal server error' });
-  }
-}
+export default NextAuth(authOptions);

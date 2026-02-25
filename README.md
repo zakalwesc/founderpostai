@@ -1,90 +1,108 @@
 # FounderPostAI
 
-Generate engaging LinkedIn posts in seconds with AI-optimized variations.
+LinkedIn post generation SaaS powered by Claude AI. Stop staring at a blank page and generate LinkedIn posts that actually get engagement.
 
 ## Features
 
-- **LinkedIn-Optimized**: Not generic ChatGPT — built specifically for LinkedIn engagement
-- **One-Click Generation**: Select tone, type, and length. Get 5 variations instantly
-- **Customizable Options**:
-  - Tones: Professional, Casual, Funny, Thought-Leadership
-  - Types: Story, Tips, Questions
-  - Lengths: Short (280), Medium (500), Long (1000+)
-- **Free Tier**: 2 posts/month
+- **One-Click Generation**: Generate 5 unique LinkedIn post variations in seconds
+- **Optimized for LinkedIn**: Built specifically for LinkedIn, not generic ChatGPT output
+- **Tone & Style Options**: Choose from professional, casual, funny, and thought-leadership tones
+- **Post Type Selection**: Story posts, tips, questions, and more
+- **Length Control**: Short (280 chars), medium (500 chars), or long (1000+ chars)
+- **Free Tier**: 2 posts/month auto-enrolled
 - **Pro Tier**: $9/month for 50 posts/month
-- **Post History**: Track all generated posts
-- **Usage Stats**: Monitor monthly quota
+- **Dashboard**: Track usage, view history, manage account
+- **Copy-to-Clipboard**: One-click copying for instant sharing
 
 ## Tech Stack
 
-- **Framework**: Next.js 14
-- **Database**: SQLite (Prisma ORM)
-- **Authentication**: JWT + bcrypt
+- **Framework**: Next.js 14 with TypeScript
 - **AI**: Anthropic Claude API
 - **Payments**: Stripe
+- **Database**: SQLite (development) / PostgreSQL (production)
+- **Styling**: Tailwind CSS
 - **Deployment**: Vercel
 
-## Setup
+## Getting Started
 
 ### Prerequisites
 
 - Node.js 18+
+- npm or yarn
 - Stripe account (for payments)
 - Anthropic API key (for Claude)
 
 ### Installation
 
-1. Clone and install:
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/yourusername/founderpostai.git
+   cd founderpostai
+   ```
+
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+3. Set up environment variables:
+   ```bash
+   cp .env.example .env.local
+   ```
+
+   Fill in your credentials:
+   - `ANTHROPIC_API_KEY`: Get from https://console.anthropic.com
+   - `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`: From Stripe dashboard
+   - `STRIPE_SECRET_KEY`: From Stripe dashboard
+   - `STRIPE_WEBHOOK_SECRET`: From Stripe dashboard
+   - `NEXTAUTH_SECRET`: Generate with `openssl rand -base64 32`
+
+4. Run development server:
+   ```bash
+   npm run dev
+   ```
+
+   Open [http://localhost:3000](http://localhost:3000)
+
+### Database Setup
+
+The app uses SQLite for development and PostgreSQL for production. Initialize the database:
+
 ```bash
-git clone https://github.com/yourusername/founderpostai.git
-cd founderpostai
-npm install
+npm run db:push
 ```
-
-2. Set up environment variables:
-```bash
-cp .env.example .env.local
-```
-
-3. Fill in `.env.local`:
-```
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_...
-STRIPE_SECRET_KEY=sk_live_...
-ANTHROPIC_API_KEY=sk-ant-...
-JWT_SECRET=your_secure_random_string
-DATABASE_URL=file:./prisma/dev.db
-```
-
-4. Set up database:
-```bash
-npx prisma migrate dev --name init
-```
-
-5. Run dev server:
-```bash
-npm run dev
-```
-
-Visit `http://localhost:3000`
 
 ## Deployment
 
 ### Vercel
 
 1. Push to GitHub
-2. Connect to Vercel
+2. Import project to Vercel
 3. Set environment variables in Vercel dashboard
 4. Deploy
 
-## API Endpoints
+## Environment Variables
 
-- `POST /api/auth/signup` - Register user
-- `POST /api/auth/login` - Login
-- `POST /api/posts/generate` - Generate post variations
-- `GET /api/posts` - Get post history
-- `GET /api/usage` - Get usage stats
-- `POST /api/checkout` - Create Stripe checkout session
-- `POST /api/webhooks/stripe` - Stripe webhook handler
+Required for production:
+
+- `ANTHROPIC_API_KEY`: Claude API key
+- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`: Stripe publishable key
+- `STRIPE_SECRET_KEY`: Stripe secret key
+- `STRIPE_WEBHOOK_SECRET`: Stripe webhook endpoint secret
+- `NEXTAUTH_SECRET`: NextAuth.js session secret
+- `NEXTAUTH_URL`: Your production domain
+- `DATABASE_URL`: PostgreSQL connection string (production)
+
+## API Routes
+
+- `POST /api/auth/signup`: User registration
+- `POST /api/auth/login`: User login
+- `POST /api/posts/generate`: Generate post variations (requires auth)
+- `GET /api/posts/history`: Get user's post history (requires auth)
+- `GET /api/user/usage`: Get monthly usage stats (requires auth)
+- `POST /api/stripe/create-checkout`: Create Stripe checkout session
+- `POST /api/webhooks/stripe`: Stripe webhook handler
+- `POST /api/auth/logout`: User logout
 
 ## License
 
