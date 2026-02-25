@@ -1,0 +1,152 @@
+.container {
+  min-height: 100vh;
+  background: #f8f9ff;
+}
+
+.nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem 2rem;
+  background: white;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.navBrand {
+  font-size: 1.5rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.backBtn {
+  background: #f0f0f0;
+  border: none;
+  padding: 0.6rem 1.2rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background 0.3s;
+}
+
+.backBtn:hover {
+  background: #e0e0e0;
+}
+
+.main {
+  padding: 3rem 2rem;
+  max-width: 800px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.main h1 {
+  margin: 0 0 1rem 0;
+  color: #333;
+  font-size: 2.5rem;
+}
+
+.subtitle {
+  margin: 0 0 2rem 0;
+  color: #666;
+  font-size: 1.1rem;
+}
+
+.error {
+  background: #fee;
+  color: #c33;
+  padding: 1rem;
+  border-radius: 6px;
+  margin-bottom: 2rem;
+  font-size: 0.9rem;
+}
+
+.upgradePlan {
+  background: white;
+  padding: 2.5rem;
+  border-radius: 12px;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+  margin-bottom: 3rem;
+}
+
+.upgradePlan h2 {
+  margin: 0 0 1rem 0;
+  color: #333;
+  font-size: 1.8rem;
+}
+
+.price {
+  margin: 1rem 0;
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #667eea;
+}
+
+.price span {
+  font-size: 1rem;
+  color: #666;
+}
+
+.posts {
+  margin: 0.5rem 0 1.5rem 0;
+  color: #666;
+  font-size: 1rem;
+}
+
+.benefits {
+  list-style: none;
+  margin: 2rem 0;
+  padding: 0;
+  text-align: left;
+}
+
+.benefits li {
+  padding: 0.75rem 0;
+  color: #333;
+  font-size: 0.95rem;
+}
+
+.upgradeBtn {
+  width: 100%;
+  padding: 1rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.upgradeBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+}
+
+.upgradeBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.faq {
+  background: #f8f9ff;
+  padding: 2rem;
+  border-radius: 8px;
+  border-left: 4px solid #667eea;
+}
+
+.faq h3 {
+  margin: 0 0 1rem 0;
+  color: #333;
+  font-size: 1.2rem;
+}
+
+.faq p {
+  margin: 0;
+  color: #666;
+  line-height: 1.6;
+}
