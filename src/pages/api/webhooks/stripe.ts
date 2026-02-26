@@ -1,5 +1,4 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { buffer } from 'micro';
 import stripe from '@/lib/stripe';
 import { getDb } from '@/lib/db';
 import type Stripe from 'stripe';
@@ -10,6 +9,16 @@ export const config = {
   },
 };
 
+// Read raw body without 'micro' dependency
+function getRawBody(req: NextApiRequest): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    req.on('data', (chunk: Buffer) => chunks.push(chunk));
+    req.on('end', () => resolve(Buffer.concat(chunks)));
+    req.on('error', reject);
+  });
+}
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
@@ -18,7 +27,7 @@ export default async function handler(
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
-  const buf = await buffer(req);
+  const buf = await getRawBody(req);
   const sig = req.headers['stripe-signature'] as string;
 
   let event: Stripe.Event;
@@ -38,7 +47,7 @@ export default async function handler(
   try {
     if (event.type === 'customer.subscription.created' || event.type === 'customer.subscription.updated') {
       const subscription = event.data.object as Stripe.Subscription;
-      const email = subscription.metadata?.email || subscription.customer_email;
+      const email = (subscription as any).metadata?.email || (subscription as any).customer_email;
 
       if (email) {
         db.prepare('UPDATE users SET tier = ? WHERE email = ?').run('pro', email);
@@ -53,7 +62,7 @@ export default async function handler(
 
     if (event.type === 'customer.subscription.deleted') {
       const subscription = event.data.object as Stripe.Subscription;
-      const email = subscription.metadata?.email || subscription.customer_email;
+      const email = (subscription as any).metadata?.email || (subscription as any).customer_email;
 
       if (email) {
         db.prepare('UPDATE users SET tier = ? WHERE email = ?').run('free', email);

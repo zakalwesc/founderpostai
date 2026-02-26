@@ -1,8 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { PrismaClient } from '@prisma/client';
+import { getDb } from '@/lib/db';
 import jwt from 'jsonwebtoken';
-
-const prisma = new PrismaClient();
 
 interface JwtPayload {
   userId: string;
@@ -38,7 +36,7 @@ export default async function handler(
   try {
     const cookieHeader = req.headers.cookie || '';
     const token = getCookie(cookieHeader, 'token');
-    
+
     if (!token) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
@@ -48,16 +46,14 @@ export default async function handler(
       return res.status(401).json({ error: 'Invalid token' });
     }
 
-    const posts = await prisma.post.findMany({
-      where: { userId: payload.userId },
-      orderBy: { createdAt: 'desc' },
-    });
+    const db = getDb();
+    const posts = db
+      .prepare(
+        'SELECT id, content, topic, tone, post_type, length, created_at FROM posts WHERE user_id = ? ORDER BY created_at DESC LIMIT 100'
+      )
+      .all(payload.userId);
 
-    const usage = await prisma.usage.findUnique({
-      where: { userId: payload.userId },
-    });
-
-    return res.status(200).json({ posts, usage });
+    return res.status(200).json({ posts });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: 'Failed to fetch posts' });
