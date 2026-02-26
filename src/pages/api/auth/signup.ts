@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import bcrypt from 'bcryptjs';
-import { getDb } from '@/lib/db';
+import { getUserByEmail, createUser } from '@/lib/db';
 
 type ResponseData = {
   message: string;
@@ -24,19 +24,19 @@ export default async function handler(
     return res.status(400).json({ message: 'Password must be at least 8 characters' });
   }
 
-  try {
-    const db = getDb();
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return res.status(400).json({ message: 'Invalid email address' });
+  }
 
-    const existingUser = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
+  try {
+    const existingUser = getUserByEmail(email);
     if (existingUser) {
       return res.status(400).json({ message: 'Email already in use' });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-
-    db.prepare(
-      'INSERT INTO users (email, password, tier, created_at) VALUES (?, ?, ?, ?)'
-    ).run(email, hashedPassword, 'free', new Date().toISOString());
+    createUser(email, hashedPassword);
 
     return res.status(201).json({ message: 'Account created successfully' });
   } catch (error) {

@@ -1,61 +1,149 @@
-import Database from 'better-sqlite3';
-import path from 'path';
-import fs from 'fs';
+/**
+ * In-memory database for Vercel serverless deployment.
+ * Data persists per serverless instance (resets on cold start).
+ * For production with persistence, replace with Vercel Postgres or similar.
+ */
 
-let db: Database.Database;
-
-export function getDb() {
-  if (!db) {
-    const dbPath = process.env.DATABASE_URL?.replace('file://', '') || path.join(process.cwd(), 'dev.db');
-
-    // Ensure directory exists
-    const dbDir = path.dirname(dbPath);
-    if (!fs.existsSync(dbDir)) {
-      fs.mkdirSync(dbDir, { recursive: true });
-    }
-
-    db = new Database(dbPath);
-    db.pragma('journal_mode = WAL');
-
-    // Initialize schema
-    initializeSchema();
-  }
-
-  return db;
+export interface User {
+  id: string;
+  email: string;
+  password: string;
+  tier: 'free' | 'pro';
+  createdAt: string;
+  stripeCustomerId?: string;
+  stripeSubscriptionId?: string;
 }
 
-function initializeSchema() {
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      email TEXT UNIQUE NOT NULL,
-      password TEXT NOT NULL,
-      tier TEXT DEFAULT 'free',
-      created_at TEXT NOT NULL
-    );
+export interface Post {
+  id: string;
+  userId: string;
+  content: string;
+  topic: string;
+  tone: string;
+  postType: string;
+  length: string;
+  createdAt: string;
+}
 
-    CREATE TABLE IF NOT EXISTS posts (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
-      content TEXT NOT NULL,
-      topic TEXT NOT NULL,
-      tone TEXT NOT NULL,
-      post_type TEXT NOT NULL,
-      length TEXT NOT NULL,
-      created_at TEXT NOT NULL,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-    );
+export interface SubscriptionEvent {
+  id: string;
+  userId: string;
+  eventType: string;
+  stripeSubscriptionId?: string;
+  createdAt: string;
+}
 
-    CREATE TABLE IF NOT EXISTS subscription_events (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
-      event_type TEXT NOT NULL,
-      stripe_subscription_id TEXT,
-      created_at TEXT NOT NULL,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-    );
+// In-memory stores
+const users: Map<string, User> = new Map();
+const posts: Post[] = [];
+const subscriptionEvents: SubscriptionEvent[] = [];
 
-    CREATE INDEX IF NOT EXISTS idx_posts_user_id ON posts(user_id);
-    CREATE INDEX IF NOT EXISTS idx_posts_created_at ON posts(created_at);
-  `);
+let userIdCounter = 1;
+let postIdCounter = 1;
+let eventIdCounter = 1;
+
+// User operations
+export function createUser(email: string, hashedPassword: string): User {
+  const id = (userIdCounter++).toString();
+  const user: User = {
+    id,
+    email: email.toLowerCase(),
+    password: hashedPassword,
+    tier: 'free',
+    createdAt: new Date().toISOString(),
+  };
+  users.set(id, user);
+  return user;
+}
+
+export function getUserByEmail(email: string): User | undefined {
+  const lowerEmail = email.toLowerCase();
+  for (const user of users.values()) {
+    if (user.email === lowerEmail) return user;
+  }
+  return undefined;
+}
+
+export function getUserById(id: string): User | undefined {
+  return users.get(id);
+}
+
+export function updateUserTier(userId: string, tier: 'free' | 'pro'): void {
+  const user = users.get(userId);
+  if (user) {
+    user.tier = tier;
+    users.set(userId, user);
+  }
+}
+
+export function updateUserByEmail(email: string, updates: Partial<User>): void {
+  const lowerEmail = email.toLowerCase();
+  for (const [id, user] of users.entries()) {
+    if (user.email === lowerEmail) {
+      users.set(id, { ...user, ...updates });
+      return;
+    }
+  }
+}
+
+export function getUserByStripeCustomerId(customerId: string): User | undefined {
+  for (const user of users.values()) {
+    if (user.stripeCustomerId === customerId) return user;
+  }
+  return undefined;
+}
+
+// Post operations
+export function createPost(
+  userId: string,
+  content: string,
+  topic: string,
+  tone: string,
+  postType: string,
+  length: string
+): Post {
+  const post: Post = {
+    id: (postIdCounter++).toString(),
+    userId,
+    content,
+    topic,
+    tone,
+    postType,
+    length,
+    createdAt: new Date().toISOString(),
+  };
+  posts.push(post);
+  return post;
+}
+
+export function getPostsByUserId(userId: string, limit = 100): Post[] {
+  return posts
+    .filter((p) => p.userId === userId)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, limit);
+}
+
+export function getMonthlyPostCount(userId: string): number {
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  return posts.filter(
+    (p) => p.userId === userId && new Date(p.createdAt) >= monthStart
+  ).length;
+}
+
+// Subscription event operations
+export function createSubscriptionEvent(
+  userId: string,
+  eventType: string,
+  stripeSubscriptionId?: string
+): SubscriptionEvent {
+  const event: SubscriptionEvent = {
+    id: (eventIdCounter++).toString(),
+    userId,
+    eventType,
+    stripeSubscriptionId,
+    createdAt: new Date().toISOString(),
+  };
+  subscriptionEvents.push(event);
+  return event;
 }

@@ -1,20 +1,8 @@
 import { NextApiRequest, NextApiResponse } from 'next';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from './auth/[...nextauth]';
 import stripe from '@/lib/stripe';
-import prisma from '@/lib/db';
-import { verifyToken } from '@/lib/auth';
-
-function getTokenFromCookie(req: NextApiRequest): string | null {
-  const cookie = req.headers.cookie;
-  if (!cookie) return null;
-  const cookies = cookie.split(';');
-  for (const c of cookies) {
-    const [key, value] = c.split('=');
-    if (key.trim() === 'token') {
-      return value?.trim() || null;
-    }
-  }
-  return null;
-}
+import { getUserByEmail } from '@/lib/db';
 
 export default async function handler(
   req: NextApiRequest,
@@ -25,25 +13,20 @@ export default async function handler(
   }
 
   try {
-    const token = getTokenFromCookie(req);
-    if (!token) {
+    const session = await getServerSession(req, res, authOptions);
+    if (!session || !session.user?.email) {
       return res.status(401).json({ error: 'Not authenticated' });
     }
 
-    const decoded = verifyToken(token);
-    if (!decoded) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { id: decoded.userId },
-    });
-
+    const user = getUserByEmail(session.user.email);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    const session = await stripe.checkout.sessions.create({
+    const baseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_URL || 'http://localhost:3000';
+
+    const checkoutSession = await stripe.checkout.sessions.create({
+      customer_email: user.email,
       payment_method_types: ['card'],
       mode: 'subscription',
       line_items: [
@@ -52,9 +35,9 @@ export default async function handler(
             currency: 'usd',
             product_data: {
               name: 'FounderPostAI Pro',
-              description: '50 LinkedIn posts per month',
+              description: '50 LinkedIn post generations per month',
             },
-            unit_amount: 900, // $9.00
+            unit_amount: 900,
             recurring: {
               interval: 'month',
             },
@@ -62,13 +45,15 @@ export default async function handler(
           quantity: 1,
         },
       ],
-      customer_email: user.email,
-      client_reference_id: user.id,
-      success_url: `${process.env.NEXT_PUBLIC_URL || 'http://localhost:3000'}/dashboard?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.NEXT_PUBLIC_URL || 'http://localhost:3000'}/dashboard`,
+      success_url: `${baseUrl}/dashboard?upgrade=success`,
+      cancel_url: `${baseUrl}/dashboard`,
+      metadata: {
+        userId: user.id,
+        email: user.email,
+      },
     });
 
-    return res.status(200).json({ url: session.url });
+    return res.status(200).json({ url: checkoutSession.url });
   } catch (error) {
     console.error('Checkout error:', error);
     return res.status(500).json({ error: 'Failed to create checkout session' });

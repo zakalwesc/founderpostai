@@ -55,11 +55,11 @@ Requirements:
 - Write authentic, specific content (not generic)
 - Posts should feel personal and genuine
 
-Return ONLY the 5 posts, numbered 1-5, separated by blank lines. Do not include any other text, explanations, or metadata.`;
+Return ONLY the 5 posts, numbered 1-5, separated by "---" on its own line. Do not include any other text, explanations, or metadata.`;
 
   try {
     const message = await client.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-5',
       max_tokens: 2000,
       messages: [
         {
@@ -74,13 +74,18 @@ Return ONLY the 5 posts, numbered 1-5, separated by blank lines. Do not include 
       throw new Error('Unexpected response type from Claude');
     }
 
-    const posts = content.text
-      .split(/\n\n+/)  // Split on blank lines
-      .map((post) => post.replace(/^\d+\.\s*/, '').trim())
-      .filter((post) => post.length > 0);
+    // Split by separator or numbered lines
+    let rawPosts: string[];
+    if (content.text.includes('---')) {
+      rawPosts = content.text.split('---').map((p) => p.trim()).filter((p) => p.length > 0);
+    } else {
+      rawPosts = content.text
+        .split(/\n(?=\d+\.)/)
+        .map((post) => post.replace(/^\d+\.\s*/, '').trim())
+        .filter((post) => post.length > 0);
+    }
 
-    // Return exactly 5 posts
-    return posts.slice(0, 5);
+    return rawPosts.slice(0, 5);
   } catch (error) {
     console.error('Claude API error:', error);
     throw new Error('Failed to generate posts');

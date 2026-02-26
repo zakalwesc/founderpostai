@@ -1,7 +1,7 @@
 import NextAuth, { type NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import bcrypt from 'bcryptjs';
-import { getDb } from '@/lib/db';
+import { getUserByEmail } from '@/lib/db';
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -16,8 +16,7 @@ export const authOptions: NextAuthOptions = {
         }
 
         try {
-          const db = getDb();
-          const user = db.prepare('SELECT * FROM users WHERE email = ?').get(credentials.email) as any;
+          const user = getUserByEmail(credentials.email);
 
           if (!user) {
             throw new Error('Invalid credentials');
@@ -29,7 +28,7 @@ export const authOptions: NextAuthOptions = {
           }
 
           return {
-            id: user.id.toString(),
+            id: user.id,
             email: user.email,
             tier: user.tier,
           };

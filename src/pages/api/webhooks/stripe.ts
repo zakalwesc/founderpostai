@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import stripe from '@/lib/stripe';
-import { getDb } from '@/lib/db';
+import { getUserByEmail, getUserByStripeCustomerId, updateUserTier, updateUserByEmail, createSubscriptionEvent } from '@/lib/db';
 import type Stripe from 'stripe';
 
 export const config = {
@@ -9,7 +9,6 @@ export const config = {
   },
 };
 
-// Read raw body without 'micro' dependency
 function getRawBody(req: NextApiRequest): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
@@ -17,6 +16,16 @@ function getRawBody(req: NextApiRequest): Promise<Buffer> {
     req.on('end', () => resolve(Buffer.concat(chunks)));
     req.on('error', reject);
   });
+}
+
+async function getCustomerEmail(customerId: string): Promise<string | null> {
+  try {
+    const customer = await stripe.customers.retrieve(customerId);
+    if (customer.deleted) return null;
+    return (customer as Stripe.Customer).email || null;
+  } catch {
+    return null;
+  }
 }
 
 export default async function handler(
@@ -39,39 +48,75 @@ export default async function handler(
       process.env.STRIPE_WEBHOOK_SECRET || ''
     );
   } catch (error) {
+    console.error('Webhook signature error:', error);
     return res.status(400).send(`Webhook Error: ${(error as Error).message}`);
   }
 
-  const db = getDb();
-
   try {
-    if (event.type === 'customer.subscription.created' || event.type === 'customer.subscription.updated') {
+    if (
+      event.type === 'customer.subscription.created' ||
+      event.type === 'customer.subscription.updated'
+    ) {
       const subscription = event.data.object as Stripe.Subscription;
-      const email = (subscription as any).metadata?.email || (subscription as any).customer_email;
+      const customerId = subscription.customer as string;
+
+      // Try to find user by metadata email first, then by customer ID lookup
+      let email: string | null =
+        (subscription as any).metadata?.email || null;
+
+      if (!email) {
+        email = await getCustomerEmail(customerId);
+      }
 
       if (email) {
-        db.prepare('UPDATE users SET tier = ? WHERE email = ?').run('pro', email);
-        const user = db.prepare('SELECT id FROM users WHERE email = ?').get(email) as any;
+        updateUserByEmail(email, { tier: 'pro', stripeCustomerId: customerId, stripeSubscriptionId: subscription.id });
+        const user = getUserByEmail(email);
         if (user) {
-          db.prepare(
-            'INSERT INTO subscription_events (user_id, event_type, stripe_subscription_id, created_at) VALUES (?, ?, ?, ?)'
-          ).run(user.id, event.type, subscription.id, new Date().toISOString());
+          createSubscriptionEvent(user.id, event.type, subscription.id);
+        }
+      } else {
+        // Try by customer ID
+        const user = getUserByStripeCustomerId(customerId);
+        if (user) {
+          updateUserTier(user.id, 'pro');
+          createSubscriptionEvent(user.id, event.type, subscription.id);
         }
       }
     }
 
     if (event.type === 'customer.subscription.deleted') {
       const subscription = event.data.object as Stripe.Subscription;
-      const email = (subscription as any).metadata?.email || (subscription as any).customer_email;
+      const customerId = subscription.customer as string;
+
+      let email: string | null =
+        (subscription as any).metadata?.email || null;
+
+      if (!email) {
+        email = await getCustomerEmail(customerId);
+      }
 
       if (email) {
-        db.prepare('UPDATE users SET tier = ? WHERE email = ?').run('free', email);
-        const user = db.prepare('SELECT id FROM users WHERE email = ?').get(email) as any;
+        updateUserByEmail(email, { tier: 'free' });
+        const user = getUserByEmail(email);
         if (user) {
-          db.prepare(
-            'INSERT INTO subscription_events (user_id, event_type, stripe_subscription_id, created_at) VALUES (?, ?, ?, ?)'
-          ).run(user.id, event.type, subscription.id, new Date().toISOString());
+          createSubscriptionEvent(user.id, event.type, subscription.id);
         }
+      } else {
+        const user = getUserByStripeCustomerId(customerId);
+        if (user) {
+          updateUserTier(user.id, 'free');
+          createSubscriptionEvent(user.id, event.type, subscription.id);
+        }
+      }
+    }
+
+    if (event.type === 'checkout.session.completed') {
+      const session = event.data.object as Stripe.Checkout.Session;
+      const email = session.metadata?.email || session.customer_email;
+      const customerId = session.customer as string;
+
+      if (email) {
+        updateUserByEmail(email, { tier: 'pro', stripeCustomerId: customerId });
       }
     }
 

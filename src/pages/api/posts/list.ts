@@ -1,29 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { getDb } from '@/lib/db';
-import jwt from 'jsonwebtoken';
-
-interface JwtPayload {
-  userId: string;
-  iat: number;
-  exp: number;
-}
-
-function verifyToken(token: string): JwtPayload | null {
-  try {
-    return jwt.verify(token, process.env.NEXTAUTH_SECRET || 'secret') as JwtPayload;
-  } catch {
-    return null;
-  }
-}
-
-function getCookie(cookieString: string, name: string): string | null {
-  const cookies = cookieString.split('; ');
-  for (const cookie of cookies) {
-    const [key, value] = cookie.split('=');
-    if (key === name) return value;
-  }
-  return null;
-}
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '../auth/[...nextauth]';
+import { getUserByEmail, getPostsByUserId } from '@/lib/db';
 
 export default async function handler(
   req: NextApiRequest,
@@ -34,25 +12,17 @@ export default async function handler(
   }
 
   try {
-    const cookieHeader = req.headers.cookie || '';
-    const token = getCookie(cookieHeader, 'token');
-
-    if (!token) {
+    const session = await getServerSession(req, res, authOptions);
+    if (!session || !session.user?.email) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const payload = verifyToken(token);
-    if (!payload) {
-      return res.status(401).json({ error: 'Invalid token' });
+    const user = getUserByEmail(session.user.email);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
     }
 
-    const db = getDb();
-    const posts = db
-      .prepare(
-        'SELECT id, content, topic, tone, post_type, length, created_at FROM posts WHERE user_id = ? ORDER BY created_at DESC LIMIT 100'
-      )
-      .all(payload.userId);
-
+    const posts = getPostsByUserId(user.id);
     return res.status(200).json({ posts });
   } catch (error) {
     console.error(error);

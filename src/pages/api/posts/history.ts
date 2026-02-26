@@ -1,19 +1,18 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { getSession } from 'next-auth/react';
-import { getDb } from '@/lib/db';
-
-type Post = {
-  id: number;
-  content: string;
-  topic: string;
-  tone: string;
-  post_type: string;
-  length: string;
-  created_at: string;
-};
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '../auth/[...nextauth]';
+import { getUserByEmail, getPostsByUserId } from '@/lib/db';
 
 type ResponseData = {
-  posts?: Post[];
+  posts?: Array<{
+    id: string;
+    content: string;
+    topic: string;
+    tone: string;
+    post_type: string;
+    length: string;
+    created_at: string;
+  }>;
   message?: string;
 };
 
@@ -25,24 +24,29 @@ export default async function handler(
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
-  const session = await getSession({ req });
-  if (!session || !session.user) {
+  const session = await getServerSession(req, res, authOptions);
+  if (!session || !session.user?.email) {
     return res.status(401).json({ message: 'Unauthorized' });
   }
 
   try {
-    const db = getDb();
-    const user = db.prepare('SELECT id FROM users WHERE email = ?').get((session.user as any).email) as any;
-
+    const user = getUserByEmail(session.user.email);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    const posts = db
-      .prepare(
-        'SELECT id, content, topic, tone, post_type, length, created_at FROM posts WHERE user_id = ? ORDER BY created_at DESC LIMIT 100'
-      )
-      .all(user.id) as Post[];
+    const userPosts = getPostsByUserId(user.id);
+
+    // Map to expected format for frontend
+    const posts = userPosts.map((p) => ({
+      id: p.id,
+      content: p.content,
+      topic: p.topic,
+      tone: p.tone,
+      post_type: p.postType,
+      length: p.length,
+      created_at: p.createdAt,
+    }));
 
     return res.status(200).json({ posts });
   } catch (error) {

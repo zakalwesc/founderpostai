@@ -1,19 +1,7 @@
-import { NextApiRequest, NextApiResponse } from 'next';
-import prisma from '@/lib/db';
-import { verifyToken } from '@/lib/auth';
-
-function getTokenFromCookie(req: NextApiRequest): string | null {
-  const cookie = req.headers.cookie;
-  if (!cookie) return null;
-  const cookies = cookie.split(';');
-  for (const c of cookies) {
-    const [key, value] = c.split('=');
-    if (key.trim() === 'token') {
-      return value?.trim() || null;
-    }
-  }
-  return null;
-}
+import type { NextApiRequest, NextApiResponse } from 'next';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '../auth/[...nextauth]';
+import { getUserByEmail, getPostsByUserId } from '@/lib/db';
 
 export default async function handler(
   req: NextApiRequest,
@@ -24,21 +12,17 @@ export default async function handler(
   }
 
   try {
-    const token = getTokenFromCookie(req);
-    if (!token) {
+    const session = await getServerSession(req, res, authOptions);
+    if (!session || !session.user?.email) {
       return res.status(401).json({ error: 'Not authenticated' });
     }
 
-    const decoded = verifyToken(token);
-    if (!decoded) {
-      return res.status(401).json({ error: 'Invalid token' });
+    const user = getUserByEmail(session.user.email);
+    if (!user) {
+      return res.status(401).json({ error: 'User not found' });
     }
 
-    const posts = await prisma.post.findMany({
-      where: { userId: decoded.userId },
-      orderBy: { createdAt: 'desc' },
-    });
-
+    const posts = getPostsByUserId(user.id);
     return res.status(200).json({ posts });
   } catch (error) {
     console.error('Get posts error:', error);

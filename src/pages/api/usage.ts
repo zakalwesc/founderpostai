@@ -1,21 +1,9 @@
-import { NextApiRequest, NextApiResponse } from 'next';
-import prisma from '@/lib/db';
-import { verifyToken } from '@/lib/auth';
+import type { NextApiRequest, NextApiResponse } from 'next';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from './auth/[...nextauth]';
+import { getUserByEmail, getMonthlyPostCount } from '@/lib/db';
 
-function getTokenFromCookie(req: NextApiRequest): string | null {
-  const cookie = req.headers.cookie;
-  if (!cookie) return null;
-  const cookies = cookie.split(';');
-  for (const c of cookies) {
-    const [key, value] = c.split('=');
-    if (key.trim() === 'token') {
-      return value?.trim() || null;
-    }
-  }
-  return null;
-}
-
-const TIER_LIMITS = {
+const TIER_LIMITS: Record<string, number> = {
   free: 2,
   pro: 50,
 };
@@ -29,38 +17,24 @@ export default async function handler(
   }
 
   try {
-    const token = getTokenFromCookie(req);
-    if (!token) {
+    const session = await getServerSession(req, res, authOptions);
+    if (!session || !session.user?.email) {
       return res.status(401).json({ error: 'Not authenticated' });
     }
 
-    const decoded = verifyToken(token);
-    if (!decoded) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { id: decoded.userId },
-    });
-
+    const user = getUserByEmail(session.user.email);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    const currentMonth = new Date().toISOString().slice(0, 7);
-    const usage = await prisma.usage.findUnique({
-      where: { userId_month: { userId: user.id, month: currentMonth } },
-    });
-
-    const currentCount = usage?.count || 0;
-    const limit = TIER_LIMITS[user.tier as keyof typeof TIER_LIMITS] || 2;
+    const currentCount = getMonthlyPostCount(user.id);
+    const limit = TIER_LIMITS[user.tier] ?? 2;
 
     return res.status(200).json({
       tier: user.tier,
       used: currentCount,
       limit,
       remaining: Math.max(0, limit - currentCount),
-      month: currentMonth,
     });
   } catch (error) {
     console.error('Usage error:', error);

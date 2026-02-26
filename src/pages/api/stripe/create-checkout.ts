@@ -1,7 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { getSession } from 'next-auth/react';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '../auth/[...nextauth]';
 import stripe from '@/lib/stripe';
-import { getDb } from '@/lib/db';
+import { getUserByEmail } from '@/lib/db';
 
 type ResponseData = {
   url?: string;
@@ -16,15 +17,13 @@ export default async function handler(
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
-  const session = await getSession({ req });
-  if (!session || !session.user) {
+  const session = await getServerSession(req, res, authOptions);
+  if (!session || !session.user?.email) {
     return res.status(401).json({ message: 'Unauthorized' });
   }
 
   try {
-    const db = getDb();
-    const user = db.prepare('SELECT * FROM users WHERE email = ?').get((session.user as any).email) as any;
-
+    const user = getUserByEmail(session.user.email);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -41,7 +40,7 @@ export default async function handler(
             currency: 'usd',
             product_data: {
               name: 'FounderPostAI Pro',
-              description: '50 LinkedIn posts per month',
+              description: '50 LinkedIn post generations per month',
             },
             unit_amount: 900,
             recurring: {
@@ -54,7 +53,7 @@ export default async function handler(
       success_url: `${baseUrl}/dashboard?upgrade=success`,
       cancel_url: `${baseUrl}/dashboard`,
       metadata: {
-        userId: user.id.toString(),
+        userId: user.id,
         email: user.email,
       },
     });
