@@ -1,24 +1,60 @@
-import jwt from 'jsonwebtoken';
-import bcrypt from 'bcryptjs';
+import { NextAuthOptions } from 'next-auth';
+import CredentialsProvider from 'next-auth/providers/credentials';
+import bcryptjs from 'bcryptjs';
+import { findUserByEmail } from './db';
 
-const JWT_SECRET = process.env.NEXTAUTH_SECRET || 'fallback-secret-key-change-in-production';
+export const authOptions: NextAuthOptions = {
+  providers: [
+    CredentialsProvider({
+      name: 'credentials',
+      credentials: {
+        email: { label: 'Email', type: 'email' },
+        password: { label: 'Password', type: 'password' },
+      },
+      async authorize(credentials) {
+        if (!credentials?.email || !credentials?.password) {
+          throw new Error('Email and password are required');
+        }
 
-export function hashPassword(password: string): string {
-  return bcrypt.hashSync(password, 10);
-}
+        const user = findUserByEmail(credentials.email);
+        if (!user) {
+          throw new Error('Invalid email or password');
+        }
 
-export function verifyPassword(password: string, hash: string): boolean {
-  return bcrypt.compareSync(password, hash);
-}
+        const isValid = await bcryptjs.compare(credentials.password, user.password);
+        if (!isValid) {
+          throw new Error('Invalid email or password');
+        }
 
-export function generateToken(userId: string): string {
-  return jwt.sign({ userId }, JWT_SECRET, { expiresIn: '30d' });
-}
-
-export function verifyToken(token: string): { userId: string } | null {
-  try {
-    return jwt.verify(token, JWT_SECRET) as { userId: string };
-  } catch {
-    return null;
-  }
-}
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.email,
+        };
+      },
+    }),
+  ],
+  session: {
+    strategy: 'jwt',
+    maxAge: 30 * 24 * 60 * 60, // 30 days
+  },
+  callbacks: {
+    async jwt({ token, user }) {
+      if (user) {
+        token.id = user.id;
+      }
+      return token;
+    },
+    async session({ session, token }) {
+      if (token && session.user) {
+        (session.user as { id?: string }).id = token.id as string;
+      }
+      return session;
+    },
+  },
+  pages: {
+    signIn: '/login',
+    error: '/login',
+  },
+  secret: process.env.NEXTAUTH_SECRET || 'fallback-secret-change-in-production',
+};

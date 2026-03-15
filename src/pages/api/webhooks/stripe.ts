@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import stripe from '@/lib/stripe';
-import { getUserByEmail, getUserByStripeCustomerId, updateUserTier, updateUserByEmail, createSubscriptionEvent } from '@/lib/db';
-import type Stripe from 'stripe';
+import { stripe } from '@/lib/stripe';
+import { findUserByStripeCustomerId, updateUser, createSubscriptionEvent } from '@/lib/db';
+import Stripe from 'stripe';
 
 export const config = {
   api: {
@@ -9,7 +9,7 @@ export const config = {
   },
 };
 
-function getRawBody(req: NextApiRequest): Promise<Buffer> {
+async function getRawBody(req: NextApiRequest): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
     req.on('data', (chunk: Buffer) => chunks.push(chunk));
@@ -18,111 +18,104 @@ function getRawBody(req: NextApiRequest): Promise<Buffer> {
   });
 }
 
-async function getCustomerEmail(customerId: string): Promise<string | null> {
-  try {
-    const customer = await stripe.customers.retrieve(customerId);
-    if (customer.deleted) return null;
-    return (customer as Stripe.Customer).email || null;
-  } catch {
-    return null;
-  }
-}
-
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse
-) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
-    return res.status(405).json({ message: 'Method not allowed' });
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const buf = await getRawBody(req);
-  const sig = req.headers['stripe-signature'] as string;
+  const sig = req.headers['stripe-signature'];
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+  if (!sig || !webhookSecret) {
+    return res.status(400).json({ error: 'Missing signature or webhook secret' });
+  }
 
   let event: Stripe.Event;
 
   try {
-    event = stripe.webhooks.constructEvent(
-      buf,
-      sig,
-      process.env.STRIPE_WEBHOOK_SECRET || ''
-    );
-  } catch (error) {
-    console.error('Webhook signature error:', error);
-    return res.status(400).send(`Webhook Error: ${(error as Error).message}`);
+    const rawBody = await getRawBody(req);
+    event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
+  } catch (err) {
+    console.error('Webhook signature verification failed:', err);
+    return res.status(400).json({ error: 'Invalid signature' });
   }
 
   try {
-    if (
-      event.type === 'customer.subscription.created' ||
-      event.type === 'customer.subscription.updated'
-    ) {
-      const subscription = event.data.object as Stripe.Subscription;
-      const customerId = subscription.customer as string;
+    switch (event.type) {
+      case 'checkout.session.completed': {
+        const session = event.data.object as Stripe.CheckoutSession;
+        const customerId = session.customer as string;
+        const subscriptionId = session.subscription as string;
+        const userId = session.metadata?.userId;
 
-      // Try to find user by metadata email first, then by customer ID lookup
-      let email: string | null =
-        (subscription as any).metadata?.email || null;
-
-      if (!email) {
-        email = await getCustomerEmail(customerId);
+        if (userId && customerId) {
+          updateUser(userId, {
+            tier: 'pro',
+            stripeCustomerId: customerId,
+            stripeSubscriptionId: subscriptionId,
+          });
+          createSubscriptionEvent({
+            userId,
+            eventType: 'subscription_created',
+            stripeSubscriptionId: subscriptionId,
+          });
+        }
+        break;
       }
 
-      if (email) {
-        updateUserByEmail(email, { tier: 'pro', stripeCustomerId: customerId, stripeSubscriptionId: subscription.id });
-        const user = getUserByEmail(email);
+      case 'customer.subscription.deleted': {
+        const subscription = event.data.object as Stripe.Subscription;
+        const customerId = subscription.customer as string;
+        const user = findUserByStripeCustomerId(customerId);
+
         if (user) {
-          createSubscriptionEvent(user.id, event.type, subscription.id);
+          updateUser(user.id, { tier: 'free', stripeSubscriptionId: undefined });
+          createSubscriptionEvent({
+            userId: user.id,
+            eventType: 'subscription_cancelled',
+            stripeSubscriptionId: subscription.id,
+          });
         }
-      } else {
-        // Try by customer ID
-        const user = getUserByStripeCustomerId(customerId);
-        if (user) {
-          updateUserTier(user.id, 'pro');
-          createSubscriptionEvent(user.id, event.type, subscription.id);
-        }
-      }
-    }
-
-    if (event.type === 'customer.subscription.deleted') {
-      const subscription = event.data.object as Stripe.Subscription;
-      const customerId = subscription.customer as string;
-
-      let email: string | null =
-        (subscription as any).metadata?.email || null;
-
-      if (!email) {
-        email = await getCustomerEmail(customerId);
+        break;
       }
 
-      if (email) {
-        updateUserByEmail(email, { tier: 'free' });
-        const user = getUserByEmail(email);
+      case 'customer.subscription.updated': {
+        const subscription = event.data.object as Stripe.Subscription;
+        const customerId = subscription.customer as string;
+        const user = findUserByStripeCustomerId(customerId);
+
         if (user) {
-          createSubscriptionEvent(user.id, event.type, subscription.id);
+          const isActive = subscription.status === 'active';
+          updateUser(user.id, {
+            tier: isActive ? 'pro' : 'free',
+          });
+          createSubscriptionEvent({
+            userId: user.id,
+            eventType: `subscription_${subscription.status}`,
+            stripeSubscriptionId: subscription.id,
+          });
         }
-      } else {
-        const user = getUserByStripeCustomerId(customerId);
-        if (user) {
-          updateUserTier(user.id, 'free');
-          createSubscriptionEvent(user.id, event.type, subscription.id);
-        }
+        break;
       }
-    }
 
-    if (event.type === 'checkout.session.completed') {
-      const session = event.data.object as Stripe.Checkout.Session;
-      const email = session.metadata?.email || session.customer_email;
-      const customerId = session.customer as string;
+      case 'invoice.payment_failed': {
+        const invoice = event.data.object as Stripe.Invoice;
+        const customerId = invoice.customer as string;
+        const user = findUserByStripeCustomerId(customerId);
 
-      if (email) {
-        updateUserByEmail(email, { tier: 'pro', stripeCustomerId: customerId });
+        if (user) {
+          createSubscriptionEvent({
+            userId: user.id,
+            eventType: 'payment_failed',
+          });
+        }
+        break;
       }
     }
 
     return res.status(200).json({ received: true });
   } catch (error) {
-    console.error('Webhook processing error:', error);
-    return res.status(500).json({ message: 'Internal server error' });
+    console.error('Webhook handler error:', error);
+    return res.status(500).json({ error: 'Webhook handler failed' });
   }
 }

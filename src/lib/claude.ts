@@ -1,93 +1,96 @@
 import Anthropic from '@anthropic-ai/sdk';
 
-const client = new Anthropic({
+const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
-interface GeneratePostVariationsInput {
-  topic: string;
-  tone: 'professional' | 'casual' | 'funny' | 'thought-leadership';
-  postType: 'story' | 'tips' | 'questions' | 'announcement' | 'insight';
-  length: 'short' | 'medium' | 'long';
-}
-
-const lengthGuides = {
-  short: '280 characters',
-  medium: '500 characters',
-  long: '1000+ characters',
+const TONE_DESCRIPTIONS: Record<string, string> = {
+  professional: 'authoritative, polished, business-oriented, data-driven',
+  casual: 'friendly, conversational, approachable, relatable',
+  funny: 'humorous, witty, light-hearted, entertaining with a business point',
+  'thought-leadership':
+    'visionary, insightful, challenging conventional wisdom, forward-thinking',
 };
 
-const toneDescriptions = {
-  professional: 'formal and businesslike',
-  casual: 'friendly and conversational',
-  funny: 'humorous and witty',
-  'thought-leadership': 'insightful and authoritative',
+const TYPE_DESCRIPTIONS: Record<string, string> = {
+  story: 'a personal story or narrative with a clear lesson or takeaway',
+  tips: 'actionable tips or advice in a list or structured format',
+  questions: 'an engaging question or poll to spark conversation and comments',
+  announcement: 'an exciting announcement or milestone worth celebrating',
+  insight: 'a surprising insight, statistic, or observation about your industry',
 };
 
-const postTypeDescriptions = {
-  story: 'a personal or business story with a lesson',
-  tips: 'actionable tips or best practices',
-  questions: 'engaging questions to spark discussion',
-  announcement: 'an important announcement or update',
-  insight: 'a unique insight or perspective',
+const LENGTH_DESCRIPTIONS: Record<string, string> = {
+  short: 'Keep it under 280 characters. Punchy, concise, one clear idea.',
+  medium: 'Aim for 400-500 characters. Balanced detail with a clear CTA.',
+  long: 'Write 900-1100 characters. Tell a complete story with depth and nuance.',
 };
 
-export async function generatePostVariations({
-  topic,
-  tone,
-  postType,
-  length,
-}: GeneratePostVariationsInput): Promise<string[]> {
-  const prompt = `You are an expert LinkedIn copywriter who creates posts that drive engagement.
+export async function generatePostVariations(
+  topic: string,
+  tone: string,
+  postType: string,
+  length: string
+): Promise<string[]> {
+  const toneDesc = TONE_DESCRIPTIONS[tone] || tone;
+  const typeDesc = TYPE_DESCRIPTIONS[postType] || postType;
+  const lengthDesc = LENGTH_DESCRIPTIONS[length] || length;
 
-Generate exactly 5 unique LinkedIn post variations optimized for maximum engagement.
+  const systemPrompt = `You are an expert LinkedIn content strategist who has helped hundreds of founders and executives build massive audiences on LinkedIn. You understand the platform's algorithm deeply, know what drives engagement, and write posts that feel authentic while achieving business goals.
 
-Requirements:
-- Topic: ${topic}
-- Tone: ${toneDescriptions[tone]}
-- Post Type: ${postTypeDescriptions[postType]}
-- Target Length: Around ${lengthGuides[length]}
-- Include relevant emojis (2-4 per post) for visual appeal
-- Use line breaks strategically for readability
-- Each post should have a different angle or perspective
-- Include 2-3 relevant hashtags at the end
-- Focus on driving likes, comments, and shares
-- Write authentic, specific content (not generic)
-- Posts should feel personal and genuine
+Your posts:
+- Start with a strong hook that stops the scroll (never start with "I")
+- Use short paragraphs (1-3 lines max) for mobile readability
+- Include strategic line breaks for visual rhythm
+- End with a clear call-to-action or thought-provoking question
+- Feel human and authentic, not like AI-generated content
+- Use LinkedIn-specific formatting (line breaks, emojis sparingly when appropriate)
+- Never use hashtags more than 3, place them at the end if used`;
 
-Return ONLY the 5 posts, numbered 1-5, separated by "---" on its own line. Do not include any other text, explanations, or metadata.`;
+  const userPrompt = `Generate exactly 5 different LinkedIn post variations about the following topic.
 
-  try {
-    const message = await client.messages.create({
-      model: 'claude-sonnet-4-5',
-      max_tokens: 2000,
-      messages: [
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ],
-    });
+Topic: ${topic}
+Tone: ${toneDesc}
+Post Type: ${typeDesc}
+Length: ${lengthDesc}
 
-    const content = message.content[0];
-    if (content.type !== 'text') {
-      throw new Error('Unexpected response type from Claude');
-    }
+IMPORTANT REQUIREMENTS:
+1. Generate exactly 5 variations, each distinctly different in approach and angle
+2. Each variation must strictly follow the length requirement: ${lengthDesc}
+3. Separate each variation with exactly "---" on its own line
+4. Do NOT number the variations or add any labels
+5. Make each one feel like a real human wrote it, not AI
+6. Each variation should have a completely different hook and angle
 
-    // Split by separator or numbered lines
-    let rawPosts: string[];
-    if (content.text.includes('---')) {
-      rawPosts = content.text.split('---').map((p) => p.trim()).filter((p) => p.length > 0);
-    } else {
-      rawPosts = content.text
-        .split(/\n(?=\d+\.)/)
-        .map((post) => post.replace(/^\d+\.\s*/, '').trim())
-        .filter((post) => post.length > 0);
-    }
+Generate the 5 variations now:`;
 
-    return rawPosts.slice(0, 5);
-  } catch (error) {
-    console.error('Claude API error:', error);
-    throw new Error('Failed to generate posts');
+  const message = await anthropic.messages.create({
+    model: 'claude-sonnet-4-5',
+    max_tokens: 4000,
+    messages: [
+      {
+        role: 'user',
+        content: userPrompt,
+      },
+    ],
+    system: systemPrompt,
+  });
+
+  const content = message.content[0];
+  if (content.type !== 'text') {
+    throw new Error('Unexpected response type from Claude');
   }
+
+  const rawText = content.text.trim();
+  const variations = rawText
+    .split(/\n---\n/)
+    .map((v) => v.trim())
+    .filter((v) => v.length > 0);
+
+  // Pad to 5 if we got fewer
+  while (variations.length < 5) {
+    variations.push(variations[variations.length - 1] || 'Could not generate variation.');
+  }
+
+  return variations.slice(0, 5);
 }
